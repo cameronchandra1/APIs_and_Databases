@@ -68,21 +68,21 @@ except:
 
 
 # Define your function get_user_tweets here:
-def get_user_tweets(screen_name):
-	if screen_name in CACHE_DICTION:
+def get_user_tweets(user):
+	if user in CACHE_DICTION:
 		uprint("using cache")
 		uprint("*****************************")
-		return CACHE_DICTION[screen_name]
+		return CACHE_DICTION[user]
 	else:
 		uprint('retrieving from Twitter')
 		uprint("*****************************")
-		results = api.user_timeline(screen_name= screen_name)
-		CACHE_DICTION[screen_name] = results
+		results = api.user_timeline(user= user)
+		CACHE_DICTION[user] = results
 		dumped_json_cache = json.dumps(CACHE_DICTION) + '\n'
 		fw = open(CACHE_FNAME,'w')
 		fw.write(dumped_json_cache)
 		fw.close()
-		return CACHE_DICTION[screen_name]
+		return CACHE_DICTION[user]
 
 
 
@@ -92,7 +92,6 @@ def get_user_tweets(screen_name):
 # save the result in a variable called umich_tweets:
 
 umich_tweets = get_user_tweets('@umich')
-
 
 ## Task 2 - Creating dtabase and loading data into database
 ## You should load into the Users table:
@@ -104,22 +103,35 @@ umich_tweets = get_user_tweets('@umich')
 connection = sqlite3.connect("206_APIsAndDBs.sqlite")
 cur = connection.cursor()
 
-cur.execute("DROP TABLE IF EXISTS Tweets")
-cur.execute('''
-CREATE TABLE Tweets (tweet_id TEXT, 'text' TEXT, user_posted TEXT, time_posted DATETIME, retweets NUMBER)''')
+# Users table
+cur.execute("DROP TABLE IF EXISTS Users")
 cur.execute(''' 
 CREATE TABLE Users (user_id TEXT, screen_name TEXT, num_favs INTEGER, description TEXT)''')
+# Tweets Table
+cur.execute("DROP TABLE IF EXISTS Tweets")
+cur.execute('''
+CREATE TABLE Tweets (tweet_id TEXT, text TEXT, user_posted TEXT, time_posted DATETIME, retweets NUMBER)''')
 
 
-
-for tweet in umich_tweets:
-	tweet_tup = tweet['id'],tweet['text'], tweet['user']['id'], tweet['created_at'], tweet['retweet_count']
-	cur.execute('''INSERT INTO Tweets (tweet_id, 'text', user_posted, time_posted, retweets)
-                VALUES (?,?,?,?,?)''',tweet_tup)
+# Data insertion 
+	#Users 
 for tweet in umich_tweets:
 	t_tup = tweet['user']['id'], tweet['user']['screen_name'],tweet['favorite_count'], tweet['user']['description']
 	cur.execute(''' INSERT INTO USERS (user_id ,screen_name ,num_favs ,description)
 				VALUES (?,?,?,?)''', t_tup)
+for tweet in umich_tweets:
+	if len((tweet['entities']['user_mentions']))  > 0:
+		cur.execute(''' INSERT INTO USERS (screen_name)
+			VALUES (tweet['entities']['user_mentions'][0]['screen_name']''')
+
+	#Tweets 
+for tweet in umich_tweets:
+	tweet_tup = tweet['id'],tweet['text'], tweet['user']['id'], tweet['created_at'], tweet['retweet_count']
+	cur.execute('''INSERT INTO Tweets (tweet_id, 'text', user_posted, time_posted, retweets)
+                VALUES (?,?,?,?,?)''',tweet_tup)
+
+
+
 connection.commit() 
 ## You should load into the Tweets table: 
 # Info about all the tweets (at least 20) that you gather from the 
